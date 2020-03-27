@@ -7,7 +7,7 @@
     "durationMs": 10000000,
     "commandNode": "node0",
     "workload": {
-	        "class": "org.apache.kafka.trogdor.workload.ProduceBenchSpec",
+	    "class": "org.apache.kafka.trogdor.workload.ProduceBenchSpec",
 		"bootstrapServers": "localhost:29092",
 		"targetMessagesPerSec": 10000,
 		"maxMessages": 50000,
