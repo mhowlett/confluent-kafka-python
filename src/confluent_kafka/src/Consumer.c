@@ -37,6 +37,10 @@ static void Consumer_clear0 (Handle *self) {
 		Py_DECREF(self->u.Consumer.on_revoke);
 		self->u.Consumer.on_revoke = NULL;
 	}
+	if (self->u.Consumer.on_lost) {
+		Py_DECREF(self->u.Consumer.on_lost);
+		self->u.Consumer.on_lost = NULL;
+	}
 	if (self->u.Consumer.on_commit) {
 		Py_DECREF(self->u.Consumer.on_commit);
 		self->u.Consumer.on_commit = NULL;
@@ -80,6 +84,8 @@ static int Consumer_traverse (Handle *self,
 		Py_VISIT(self->u.Consumer.on_assign);
 	if (self->u.Consumer.on_revoke)
 		Py_VISIT(self->u.Consumer.on_revoke);
+	if (self->u.Consumer.on_lost)
+		Py_VISIT(self->u.Consumer.on_lost);
 	if (self->u.Consumer.on_commit)
 		Py_VISIT(self->u.Consumer.on_commit);
 
@@ -97,8 +103,8 @@ static PyObject *Consumer_subscribe (Handle *self, PyObject *args,
 					 PyObject *kwargs) {
 
 	rd_kafka_topic_partition_list_t *topics;
-	static char *kws[] = { "topics", "on_assign", "on_revoke", NULL };
-	PyObject *tlist, *on_assign = NULL, *on_revoke = NULL;
+	static char *kws[] = { "topics", "on_assign", "on_revoke", "on_lost", NULL };
+	PyObject *tlist, *on_assign = NULL, *on_revoke = NULL, *on_lost = NULL;
 	Py_ssize_t pos = 0;
 	rd_kafka_resp_err_t err;
 
@@ -108,8 +114,8 @@ static PyObject *Consumer_subscribe (Handle *self, PyObject *args,
                 return NULL;
         }
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OO", kws,
-					 &tlist, &on_assign, &on_revoke))
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOO", kws,
+					 &tlist, &on_assign, &on_revoke, &on_lost))
 		return NULL;
 
 	if (!PyList_Check(tlist)) {
@@ -127,6 +133,12 @@ static PyObject *Consumer_subscribe (Handle *self, PyObject *args,
 	if (on_revoke && !PyCallable_Check(on_revoke)) {
 		PyErr_Format(PyExc_TypeError,
 			     "on_revoke expects a callable");
+		return NULL;
+	}
+
+	if (on_lost && !PyCallable_Check(on_lost)) {
+		PyErr_Format(PyExc_TypeError,
+			     "on_lost expects a callable");
 		return NULL;
 	}
 
@@ -179,6 +191,15 @@ static PyObject *Consumer_subscribe (Handle *self, PyObject *args,
 		Py_INCREF(self->u.Consumer.on_revoke);
 	}
 
+	if (self->u.Consumer.on_lost) {
+		Py_DECREF(self->u.Consumer.on_lost);
+		self->u.Consumer.on_lost = NULL;
+	}
+	if (on_lost) {
+		self->u.Consumer.on_lost = on_lost;
+		Py_INCREF(self->u.Consumer.on_lost);
+	}
+
 	Py_RETURN_NONE;
 }
 
@@ -201,6 +222,35 @@ static PyObject *Consumer_unsubscribe (Handle *self,
 				 rd_kafka_err2str(err));
 		return NULL;
 	}
+
+	Py_RETURN_NONE;
+}
+
+
+static PyObject *Consumer_incremental_assign (Handle *self, PyObject *tlist) {
+
+	rd_kafka_topic_partition_list_t *c_parts;
+	rd_kafka_error_t *error;
+
+        if (!self->rk) {
+                PyErr_SetString(PyExc_RuntimeError,
+                                "Consumer closed");
+                return NULL;
+        }
+
+	if (!(c_parts = py_to_c_parts(tlist)))
+		return NULL;
+
+	self->u.Consumer.rebalance_incremental_assigned++;
+
+	error = rd_kafka_incremental_assign(self->rk, c_parts);
+
+	rd_kafka_topic_partition_list_destroy(c_parts);
+
+        if (error) {
+                cfl_PyErr_from_error_destroy(error);
+                return NULL;
+        }
 
 	Py_RETURN_NONE;
 }
@@ -259,6 +309,36 @@ static PyObject *Consumer_unassign (Handle *self, PyObject *ignore) {
 
 	Py_RETURN_NONE;
 }
+
+
+static PyObject *Consumer_incremental_unassign (Handle *self, PyObject *tlist) {
+
+	rd_kafka_topic_partition_list_t *c_parts;
+	rd_kafka_error_t *error;
+
+        if (!self->rk) {
+                PyErr_SetString(PyExc_RuntimeError,
+                                "Consumer closed");
+                return NULL;
+        }
+
+	if (!(c_parts = py_to_c_parts(tlist)))
+		return NULL;
+
+	self->u.Consumer.rebalance_incremental_unassigned++;
+
+	error = rd_kafka_incremental_unassign(self->rk, c_parts);
+
+	rd_kafka_topic_partition_list_destroy(c_parts);
+
+        if (error) {
+                cfl_PyErr_from_error_destroy(error);
+                return NULL;
+        }
+
+	Py_RETURN_NONE;
+}
+
 
 static PyObject *Consumer_assignment (Handle *self, PyObject *args,
                                       PyObject *kwargs) {
@@ -1022,7 +1102,7 @@ Consumer_consumer_group_metadata (Handle *self, PyObject *ignore) {
 static PyMethodDef Consumer_methods[] = {
 	{ "subscribe", (PyCFunction)Consumer_subscribe,
 	  METH_VARARGS|METH_KEYWORDS,
-	  ".. py:function:: subscribe(topics, [on_assign=None], [on_revoke=None])\n"
+	  ".. py:function:: subscribe(topics, [on_assign=None], [on_revoke=None], [on_lost=None])\n"
 	  "\n"
 	  "  Set subscription to supplied list of topics\n"
 	  "  This replaces a previous subscription.\n"
@@ -1039,6 +1119,12 @@ static PyMethodDef Consumer_methods[] = {
 	  "  :param callable on_revoke: callback to provide handling of "
 	  "offset commits to a customized store on the start of a "
 	  "rebalance operation.\n"
+	  "  :param callable on_lost: callback to provide handling in "
+	  "the case a partition assignment has been lost. If not "
+	  "specified, lost partition events will be delivered to "
+	  "on_revoke, if specified. Partitions that have been lost may "
+	  "already be owned by other members in the group and therefore "
+	  "commiting offsets, for example, may fail.\n"
 	  "\n"
 	  "  :raises KafkaException:\n"
       "  :raises: RuntimeError if called on a closed consumer\n"
@@ -1046,6 +1132,7 @@ static PyMethodDef Consumer_methods[] = {
 	  "\n"
 	  ".. py:function:: on_assign(consumer, partitions)\n"
 	  ".. py:function:: on_revoke(consumer, partitions)\n"
+	  ".. py:function:: on_lost(consumer, partitions)\n"
 	  "\n"
 	  "  :param Consumer consumer: Consumer instance.\n"
 	  "  :param list(TopicPartition) partitions: Absolute list of partitions being assigned or revoked.\n"
@@ -1113,6 +1200,16 @@ static PyMethodDef Consumer_methods[] = {
           "  :raises: RuntimeError if called on a closed consumer\n"
 	  "\n"
 	},
+	{ "incremental_assign", (PyCFunction)Consumer_incremental_assign, METH_O,
+	  ".. py:function:: incremental_assign(partitions)\n"
+	  "\n"
+	  "  Incrementally add the provided list of :py:class:`TopicPartition` "
+          "to the current partition assignment.\n"
+	  "\n"
+	  "  :param list(TopicPartition) partitions: List of topic+partitions and optionally initial offsets to start consuming.\n"
+          "  :raises: RuntimeError if called on a closed consumer\n"
+	  "\n"
+	},
         { "unassign", (PyCFunction)Consumer_unassign, METH_NOARGS,
           "  Removes the current partition assignment and stops consuming.\n"
           "\n"
@@ -1120,6 +1217,16 @@ static PyMethodDef Consumer_methods[] = {
           "  :raises RuntimeError: if called on a closed consumer\n"
           "\n"
         },
+	{ "incremental_unassign", (PyCFunction)Consumer_incremental_unassign, METH_O,
+	  ".. py:function:: incremental_unassign(partitions)\n"
+	  "\n"
+	  "  Incrementally remove the provided list of :py:class:`TopicPartition` "
+          "from the current partition assignment.\n"
+	  "\n"
+	  "  :param list(TopicPartition) partitions: List of topic+partitions to remove from the current assignment.\n"
+          "  :raises: RuntimeError if called on a closed consumer\n"
+	  "\n"
+	},
         { "assignment", (PyCFunction)Consumer_assignment,
           METH_VARARGS|METH_KEYWORDS,
           "  Returns the current partition assignment.\n"
@@ -1314,15 +1421,25 @@ static void Consumer_rebalance_cb (rd_kafka_t *rk, rd_kafka_resp_err_t err,
 				   void *opaque) {
 	Handle *self = opaque;
 	CallState *cs;
+        rd_kafka_resp_err_t assign_err = RD_KAFKA_RESP_ERR_NO_ERROR;
+        rd_kafka_error_t *error = NULL;
+        char* assign_errstr = NULL;
+        PyObject *cb;
 
 	cs = CallState_get(self);
 
 	self->u.Consumer.rebalance_assigned = 0;
+	self->u.Consumer.rebalance_incremental_assigned = 0;
+        self->u.Consumer.rebalance_incremental_unassigned = 0;
 
 	if ((err == RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS &&
-	     self->u.Consumer.on_assign) ||
-	    (err == RD_KAFKA_RESP_ERR__REVOKE_PARTITIONS &&
-	     self->u.Consumer.on_revoke)) {
+             self->u.Consumer.on_assign) ||
+            (err == RD_KAFKA_RESP_ERR__REVOKE_PARTITIONS &&
+	     self->u.Consumer.on_revoke) ||
+            (err == RD_KAFKA_RESP_ERR__REVOKE_PARTITIONS &&
+             self->u.Consumer.on_lost &&
+             rd_kafka_assignment_lost(rk))) {
+
 		PyObject *parts;
 		PyObject *args, *result;
 
@@ -1341,10 +1458,16 @@ static void Consumer_rebalance_cb (rd_kafka_t *rk, rd_kafka_resp_err_t err,
 			return;
 		}
 
-		result = PyObject_CallObject(
-			err == RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS ?
-			self->u.Consumer.on_assign :
-			self->u.Consumer.on_revoke, args);
+                if (err == RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS)
+                        cb = self->u.Consumer.on_assign;
+                else {
+                        if (rd_kafka_assignment_lost(rk) &&
+                            self->u.Consumer.on_lost)
+                                cb = self->u.Consumer.on_lost;
+                        else
+                                cb = self->u.Consumer.on_revoke;
+                }
+		result = PyObject_CallObject(cb, args);
 
 		Py_DECREF(args);
 
@@ -1356,16 +1479,66 @@ static void Consumer_rebalance_cb (rd_kafka_t *rk, rd_kafka_resp_err_t err,
 		}
 	}
 
+        if (!strcmp(rd_kafka_rebalance_protocol(rk), "COOPERATIVE")) {
+                if (self->u.Consumer.rebalance_assigned) {
+                        assign_errstr = "assign() must not be called during a "
+                                        "COOPERATIVE protocol rebalance";
+                } else if (self->u.Consumer.rebalance_incremental_unassigned &&
+                           err == RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS) {
+                        assign_errstr = "incremental_unassign() must not be "
+                                        "called during an ASSIGN rebalance ";
+                } else if (self->u.Consumer.rebalance_incremental_assigned &&
+                           err == RD_KAFKA_RESP_ERR__REVOKE_PARTITIONS) {
+                        assign_errstr = "incremental_assign() must not be "
+                                        "called during a REVOKE rebalance";
+                }
+        } else {
+                if (self->u.Consumer.rebalance_incremental_assigned ||
+                    self->u.Consumer.rebalance_incremental_unassigned) {
+                        assign_errstr = "incremental_(un)assign must not be "
+                                        "called during an EAGER protocol "
+                                        "rebalance";
+                }
+        }
+
+        if (assign_errstr) {
+                cfl_PyErr_Format(RD_KAFKA_RESP_ERR__FAIL, assign_errstr);
+		CallState_crash(cs);
+                CallState_resume(cs);
+                return;
+        }
+
 	/* Fallback: librdkafka needs the rebalance_cb to call assign()
 	 * to synchronize state, if the user did not do this from callback,
 	 * or there was no callback, or the callback failed, then we perform
 	 * that assign() call here instead. */
-	if (!self->u.Consumer.rebalance_assigned) {
-		if (err == RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS)
-			rd_kafka_assign(rk, c_parts);
-		else
-			rd_kafka_assign(rk, NULL);
+	if (!(self->u.Consumer.rebalance_assigned ||
+              self->u.Consumer.rebalance_incremental_assigned ||
+              self->u.Consumer.rebalance_incremental_unassigned)) {
+                if (!strcmp(rd_kafka_rebalance_protocol(rk), "COOPERATIVE")) {
+		        if (err == RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS)
+			        error = rd_kafka_incremental_assign(rk,
+                                                                    c_parts);
+                        else
+                                error = rd_kafka_incremental_unassign(rk,
+                                                                      c_parts);
+                } else {
+		        if (err == RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS)
+			        assign_err = rd_kafka_assign(rk, c_parts);
+		        else
+			        assign_err = rd_kafka_assign(rk, NULL);
+                }
 	}
+
+	if (assign_err) {
+                cfl_PyErr_Format(assign_err, "Partition assignment failed");
+                CallState_crash(cs);
+        }
+
+        if (error) {
+                cfl_PyErr_from_error_destroy(error);
+                CallState_crash(cs);
+        }
 
 	CallState_resume(cs);
 }
