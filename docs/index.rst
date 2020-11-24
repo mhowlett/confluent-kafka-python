@@ -1,7 +1,8 @@
-The confluent_kafka API
-=======================
+confluent_kafka
+===============
 
-A reliable, performant and feature rich Python client for Apache Kafka v0.8 and above.
+A reliable, performant and feature-rich Python client for Apache Kafka v0.8 and above.
+
 
 Client API
    - :ref:`AdminClient <pythonclient_adminclient>`
