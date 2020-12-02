@@ -1,10 +1,6 @@
 # Conventions Used in This Document
-Unless otherwise noted all commands, file and directory references are relative to the *source root* directory.
 
-## Terminology
- - modes: Collection of integration tests to be run
- - testconf: [JSON](https://tools.ietf.org/html/rfc8259) formatted configuration file.
-        Example: [tests/testconf-example.json](./tests/testconf-example.json) for formatting.
+Unless otherwise noted all command, file and directory references are relative to the *repo's root* directory.
 
 Unit tests
 ==========
@@ -12,9 +8,9 @@ From top-level directory run:
 
     $ ./tests/run.sh tox
 
-**NOTE**: This requires `tox` ( please install with `pip install tox` ) and several supported versions of Python.
+**NOTE**: This requires `tox` ( please install with `pip install tox` ) and the supported versions of Python (py27, py36, py38).
 
-If tox is not installed:
+Alternatively:
 
     $ ./tests/run.sh unit
 
@@ -60,7 +56,7 @@ To run just the unit tests
 
     $ ./tests/run.sh unit
 
-To run a specific integration test `mode` or set of `modes` use the following syntax
+To run a specific integration test `mode` (i.e. collection of tests to run) or set of `modes` use the following syntax
 
     $ ./tests/run.sh <test mode 1> <test mode 2>..
 

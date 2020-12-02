@@ -1,5 +1,5 @@
 """
-Kafka Admin client: create, view, alter, and delete topics and resources.
+A Kafka admin client: create, view, alter, and delete topics and resources.
 """
 from ..cimpl import (KafkaException, # noqa
                      _AdminClientImpl,
@@ -94,7 +94,7 @@ class ConfigResource(object):
     name : `str`
        The resource name, which depends on the resource type. For RESOURCE_BROKER, the resource name is the broker id.
     set_config : `dict`
-        The configuration to set/overwrite. Dicrionary of str, str.
+        The configuration to set/overwrite. Dictionary of str, str.
     """
 
     class Type(Enum):
@@ -103,9 +103,9 @@ class ConfigResource(object):
         """
         UNKNOWN = RESOURCE_UNKNOWN  #: Resource type is not known or not set.
         ANY = RESOURCE_ANY  #: Match any resource, used for lookups.
-        TOPIC = RESOURCE_TOPIC  #: Topic resource. Resource name is topic name
-        GROUP = RESOURCE_GROUP  #: Group resource. Resource name is group.id
-        BROKER = RESOURCE_BROKER  #: Broker resource. Resource name is broker id
+        TOPIC = RESOURCE_TOPIC  #: Topic resource. Resource name is topic name.
+        GROUP = RESOURCE_GROUP  #: Group resource. Resource name is group.id.
+        BROKER = RESOURCE_BROKER  #: Broker resource. Resource name is broker id.
 
     def __init__(self, restype, name,
                  set_config=None, described_configs=None, error=None):
@@ -180,7 +180,7 @@ class ConfigResource(object):
 
         :param str name: Configuration property name
         :param str value: Configuration value
-        :param bool overwrite: If True, overwrite entry if already exists (default).
+        :param bool overwrite: If True, overwrite entry if it already exists (default).
                                If False, do nothing if entry already exists.
         """
         if not overwrite and name in self.set_config_dict:
@@ -193,7 +193,7 @@ class AdminClient (_AdminClientImpl):
     AdminClient provides admin operations for Kafka brokers, topics, groups,
     and other resource types supported by the broker.
 
-    The Admin API methods are asynchronous and returns a dict of
+    The Admin API methods are asynchronous and return a dict of
     concurrent.futures.Future objects keyed by the entity.
     The entity is a topic name for create_topics(), delete_topics(), create_partitions(),
     and a ConfigResource for alter_configs() and describe_configs().
@@ -207,7 +207,7 @@ class AdminClient (_AdminClientImpl):
     For more information see the `Java Admin API documentation
     <https://docs.confluent.io/current/clients/javadocs/org/apache/kafka/clients/admin/package-frame.html>`_.
 
-    Requires v0.11.0 broker or later.
+    Requires broker v0.11.0 or later.
     """
     def __init__(self, conf):
         """
