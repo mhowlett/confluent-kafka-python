@@ -312,7 +312,7 @@ class AdminClient (_AdminClientImpl):
                   without creating the topic. Default: False
 
         :returns: A dict of futures for each topic, keyed by the topic name.
-                  The value returned by future result() method is None.
+                  The future result() method returns None.
 
         :rtype: dict(<topic_name, future>)
 
@@ -343,7 +343,7 @@ class AdminClient (_AdminClientImpl):
                   on broker, and response. Default: `socket.timeout.ms*1000.0`
 
         :returns: A dict of futures for each topic, keyed by the topic name.
-                  The value returned by future result() method is None.
+                  The future result() method returns None.
 
         :rtype: dict(<topic_name, future>)
 
@@ -375,7 +375,7 @@ class AdminClient (_AdminClientImpl):
                   without creating the partitions. Default: False
 
         :returns: A dict of futures for each topic, keyed by the topic name.
-                  The value returned by future result() method is None.
+                  The future result() method returns None.
 
         :rtype: dict(<topic_name, future>)
 
@@ -407,7 +407,7 @@ class AdminClient (_AdminClientImpl):
                   on broker, and response. Default: `socket.timeout.ms*1000.0`
 
         :returns: A dict of futures for each resource, keyed by the ConfigResource.
-                  The type of the value returned by future result() method is
+                  The type of the value returned by the future result() method is
                   dict(<configname, ConfigEntry>).
 
         :rtype: dict(<ConfigResource, future>)
@@ -451,7 +451,7 @@ class AdminClient (_AdminClientImpl):
                   without altering the configuration. Default: False
 
         :returns: A dict of futures for each resource, keyed by the ConfigResource.
-                  The value returned by future result() method is None.
+                  The future result() method returns None.
 
         :rtype: dict(<ConfigResource, future>)
 

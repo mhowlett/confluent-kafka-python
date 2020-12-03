@@ -274,7 +274,7 @@ class TrivupFixture(KafkaClusterFixture):
 
 class ByoFixture(KafkaClusterFixture):
     """
-    Assumes an already running cluster.
+    A Kafka cluster fixture that assumes an already running cluster.
     """
 
     def __init__(self, conf):

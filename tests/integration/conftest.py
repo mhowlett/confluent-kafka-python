@@ -39,7 +39,7 @@ def create_byo_cluster():
 
 @pytest.fixture(scope="package")
 def kafka_cluster():
-    cluster = create_byo_cluster()
+    cluster = create_trivup_cluster()
     try:
         yield cluster
     finally:

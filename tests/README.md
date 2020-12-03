@@ -69,7 +69,7 @@ You can run these tests selectively like so:
 
     pytest -v -s ./tests/integration/consumer/test_consumer_error.py
 
-WIP: If you would like to avoid creating / destroying a cluster each time you run a test, you can update `conftest.py` to use `create_byo_cluster` instead of `create_trivup_cluster` (note: currently Kafka cluster only, not Schema Registry).
+WIP: If you would like to avoid creating / destroying a cluster each time you run a test, you can update `conftest.py` to use `create_byo_cluster` instead of `create_trivup_cluster` (note: currently does not support Schema Registry, Kafka cluster only).
 
 
 #### Troubleshooting
