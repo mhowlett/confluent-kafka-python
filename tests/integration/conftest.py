@@ -20,17 +20,26 @@ import os
 import pytest
 
 from tests.integration.cluster_fixture import TrivupFixture
+from tests.integration.cluster_fixture import ByoFixture
 
 work_dir = os.path.dirname(os.path.realpath(__file__))
 
 
+def create_trivup_cluster():
+    return TrivupFixture({'with_sr': True,
+                          'debug': True,
+                          'cp_version': 'latest',
+                          'broker_conf': ['transaction.state.log.replication.factor=1',
+                                          'transaction.state.log.min.isr=1']})
+
+
+def create_byo_cluster():
+    return ByoFixture({'bootstrap.servers': 'localhost:9092'})
+
+
 @pytest.fixture(scope="package")
 def kafka_cluster():
-
-    cluster = TrivupFixture({'with_sr': True,
-                             'cp_version': 'latest',
-                             'broker_conf': ['transaction.state.log.replication.factor=1',
-                                             'transaction.state.log.min.isr=1']})
+    cluster = create_byo_cluster()
     try:
         yield cluster
     finally:

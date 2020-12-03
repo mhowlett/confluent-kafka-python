@@ -270,3 +270,26 @@ class TrivupFixture(KafkaClusterFixture):
 
     def stop(self):
         self._cluster.stop(cleanup=True)
+
+
+class ByoFixture(KafkaClusterFixture):
+    """
+    Assumes an already running cluster.
+    """
+
+    def __init__(self, conf):
+        self._admin = None
+        self._producer = None
+        self._conf = conf
+
+    def schema_registry(self, conf=None):
+        pass
+
+    def client_conf(self, conf=None):
+        """
+        The client configuration
+        """
+        return self._conf
+
+    def stop(self):
+        pass
